@@ -4,18 +4,16 @@ import os
 from datetime import datetime, timedelta
 
 # ============================================================
-# 설정값 (GitHub Actions Secrets에서 환경변수로 주입)
+# 설정값
 # ============================================================
 COOKIE = os.environ.get("NAVER_COOKIE", "")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
-# 네이버 예약 API 설정
 BUSINESS_TYPE_ID = 13
 BUSINESS_ID = "1389149"
 BIZ_ITEM_ID = "6663752"
 
-# 체크할 날짜 범위 (오늘부터 1년치)
 START_DATE = datetime.now().strftime("%Y-%m-%dT00:00:00")
 END_DATE = (datetime.now() + timedelta(days=365)).strftime("%Y-%m-%dT23:59:59")
 
@@ -24,7 +22,6 @@ BOOKING_URL = "https://map.naver.com/p/entry/place/1774854927?placePath=/booking
 # ============================================================
 
 def send_telegram(message: str):
-    """텔레그램으로 알림 발송"""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
@@ -40,7 +37,6 @@ def send_telegram(message: str):
 
 
 def check_available_slots() -> list:
-    """네이버 예약 API 호출 → 빈 슬롯 반환"""
     url = "https://m.booking.naver.com/graphql?opName=hourlySchedule"
 
     headers = {
@@ -51,7 +47,6 @@ def check_available_slots() -> list:
         "Cookie": COOKIE,
     }
 
-    # 실제 네이버 API 쿼리 (원본 그대로)
     payload = {
         "operationName": "hourlySchedule",
         "variables": {
@@ -76,15 +71,37 @@ def check_available_slots() -> list:
         print(f"❌ API 호출 실패: {e}")
         return []
 
-    # 빈 슬롯 파싱
+    # 디버그: 응답 구조 출력 (앞 1000자)
+    print(f"📦 응답 구조 확인: {json.dumps(data, ensure_ascii=False)[:1000]}")
+
     available_slots = []
     try:
-        schedules = data["data"]["schedule"]["bizItemSchedule"]
-        for day in schedules:
+        biz_item_schedule = data["data"]["schedule"]["bizItemSchedule"]
+
+        # bizItemSchedule이 dict인 경우 (리스트가 아닐 수 있음)
+        if isinstance(biz_item_schedule, dict):
+            all_days = [biz_item_schedule]
+        elif isinstance(biz_item_schedule, list):
+            all_days = biz_item_schedule
+        else:
+            print(f"⚠️ 예상치 못한 bizItemSchedule 타입: {type(biz_item_schedule)}")
+            return []
+
+        for day in all_days:
+            if not isinstance(day, dict):
+                print(f"⚠️ day가 dict가 아님: {type(day)} / 값: {day}")
+                continue
+
             hourly_slots = day.get("hourly", [])
+            if hourly_slots is None:
+                continue
+
             for slot in hourly_slots:
-                stock = slot.get("stock", 0)
-                booking_count = slot.get("bookingCount", 0)
+                if not isinstance(slot, dict):
+                    continue
+
+                stock = slot.get("stock", 0) or 0
+                booking_count = slot.get("bookingCount", 0) or 0
                 is_sale_day = slot.get("isSaleDay", False)
                 is_business_day = slot.get("isBusinessDay", False)
                 unit_start = slot.get("unitStartDateTime", "")
@@ -96,9 +113,10 @@ def check_available_slots() -> list:
                         "remaining": remaining,
                         "name": slot.get("name", "")
                     })
+
     except (KeyError, TypeError) as e:
         print(f"❌ 응답 파싱 실패: {e}")
-        print(f"응답 내용: {json.dumps(data, ensure_ascii=False)[:500]}")
+        print(f"전체 응답: {json.dumps(data, ensure_ascii=False)[:2000]}")
 
     return available_slots
 
@@ -117,11 +135,9 @@ def main():
 
     if slots:
         print(f"🎉 빈 슬롯 {len(slots)}개 발견!")
-
-        # 메시지 구성
         slot_list = "\n".join([
-            f"  📅 {s['date']} {s['time']} (잔여 {s['remaining']}건)"
-            for s in slots[:10]  # 최대 10개만 표시
+            f"  📅 {s['datetime']} (잔여 {s['remaining']}건)"
+            for s in slots[:10]
         ])
         message = (
             f"🚨 <b>네이버 예약 빈 슬롯 발생!</b>\n\n"
