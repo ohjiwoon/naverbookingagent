@@ -1,7 +1,7 @@
 import requests
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # ============================================================
 # 설정값
@@ -15,7 +15,7 @@ BUSINESS_ID = "1389149"
 BIZ_ITEM_ID = "6663752"
 
 START_DATE = datetime.now().strftime("%Y-%m-%dT00:00:00")
-END_DATE = (datetime.now() + timedelta(days=365)).strftime("%Y-%m-%dT23:59:59")
+END_DATE = "2027-02-28T23:59:59"
 
 BOOKING_URL = "https://map.naver.com/p/entry/place/1774854927?placePath=/booking"
 
@@ -71,9 +71,6 @@ def check_available_slots() -> list:
         print(f"❌ API 호출 실패: {e}")
         return []
 
-    # 디버그: 응답 구조 출력 (앞 1000자)
-    print(f"📦 응답 구조 확인: {json.dumps(data, ensure_ascii=False)[:1000]}")
-
     available_slots = []
     try:
         biz_item_schedule = data["data"]["schedule"]["bizItemSchedule"]
@@ -100,18 +97,18 @@ def check_available_slots() -> list:
                 if not isinstance(slot, dict):
                     continue
 
-                stock = slot.get("stock", 0) or 0
-                booking_count = slot.get("bookingCount", 0) or 0
+                unit_stock = slot.get("unitStock", 0) or 0
+                unit_booking_count = slot.get("unitBookingCount", 0) or 0
                 is_sale_day = slot.get("isSaleDay", False)
                 is_business_day = slot.get("isBusinessDay", False)
-                unit_start = slot.get("unitStartDateTime", "")
+                unit_start = slot.get("unitStartDateTime", "") or slot.get("unitStartTime", "")
 
-                remaining = stock - booking_count
+                remaining = unit_stock - unit_booking_count
                 if is_business_day and is_sale_day and remaining > 0:
                     available_slots.append({
                         "datetime": unit_start,
                         "remaining": remaining,
-                        "name": slot.get("name", "")
+                        "name": slot.get("name", "") or "상담+진료"
                     })
 
     except (KeyError, TypeError) as e:
