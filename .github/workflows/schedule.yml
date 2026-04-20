@@ -1,4 +1,4 @@
-name: 네이버 예약 슬롯 체커
+name: naver-booking-checker
 
 on:
   schedule:
@@ -10,18 +10,15 @@ jobs:
   check-booking:
     runs-on: ubuntu-latest
     steps:
-      - name: 코드 체크아웃
+      - name: checkout
         uses: actions/checkout@v4
-
-      - name: Python 설치
+      - name: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: 패키지 설치
+      - name: install
         run: pip install requests
-
-      - name: 예약 슬롯 체크
+      - name: run
         env:
           NAVER_COOKIE: ${{ secrets.NAVER_COOKIE }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
