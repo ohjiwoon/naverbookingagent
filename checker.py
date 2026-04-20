@@ -68,8 +68,30 @@ def check_available_slots() -> list:
 
     try:
         res = requests.post(url, headers=headers, json=payload, timeout=15)
+
+        # 401/403은 쿠키 만료 신호
+        if res.status_code in (401, 403):
+            send_telegram(
+                "⚠️ <b>네이버 쿠키 만료!</b>\n\n"
+                "GitHub Secrets의 NAVER_COOKIE를 새로 업데이트해주세요.\n\n"
+                "방법: 네이버 예약 페이지 → F12 → Network → hourlySchedule → Headers → Cookie 복사"
+            )
+            print("❌ 쿠키 만료 (401/403) - 텔레그램 알림 발송")
+            return []
+
         res.raise_for_status()
         data = res.json()
+
+        # 응답은 200인데 로그인 세션 만료된 경우
+        if "errors" in data or data.get("data", {}).get("schedule") is None:
+            send_telegram(
+                "⚠️ <b>네이버 쿠키 만료!</b>\n\n"
+                "GitHub Secrets의 NAVER_COOKIE를 새로 업데이트해주세요.\n\n"
+                "방법: 네이버 예약 페이지 → F12 → Network → hourlySchedule → Headers → Cookie 복사"
+            )
+            print("❌ 세션 만료 - 텔레그램 알림 발송")
+            return []
+
     except Exception as e:
         print(f"❌ API 호출 실패: {e}")
         return []
