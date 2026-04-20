@@ -1,7 +1,7 @@
 import requests
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 # ============================================================
 # 설정값
@@ -14,7 +14,10 @@ BUSINESS_TYPE_ID = 13
 BUSINESS_ID = "1389149"
 BIZ_ITEM_ID = "6663752"
 
-START_DATE = datetime.now().strftime("%Y-%m-%dT00:00:00")
+# 한국 시간 기준으로 오늘 날짜 계산 (UTC+9)
+KST = timezone(timedelta(hours=9))
+now_kst = datetime.now(KST)
+START_DATE = now_kst.strftime("%Y-%m-%dT00:00:00")
 END_DATE = "2027-02-28T23:59:59"
 
 BOOKING_URL = "https://map.naver.com/p/entry/place/1774854927?placePath=/booking"
@@ -99,12 +102,13 @@ def check_available_slots() -> list:
 
                 unit_stock = slot.get("unitStock", 0) or 0
                 unit_booking_count = slot.get("unitBookingCount", 0) or 0
-                is_sale_day = slot.get("isSaleDay", False)
-                is_business_day = slot.get("isBusinessDay", False)
+                is_unit_sale_day = slot.get("isUnitSaleDay", False)
+                is_unit_business_day = slot.get("isUnitBusinessDay", False)
                 unit_start = slot.get("unitStartDateTime", "") or slot.get("unitStartTime", "")
 
+                # 실제 예약 가능 조건: 단위 영업일 + 단위 판매일 + 잔여석 있음
                 remaining = unit_stock - unit_booking_count
-                if is_business_day and is_sale_day and remaining > 0:
+                if is_unit_business_day and is_unit_sale_day and remaining > 0:
                     available_slots.append({
                         "datetime": unit_start,
                         "remaining": remaining,
@@ -119,7 +123,7 @@ def check_available_slots() -> list:
 
 
 def main():
-    print(f"🔍 체크 시작: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"🔍 체크 시작: {now_kst.strftime('%Y-%m-%d %H:%M:%S')} (KST)")
 
     if not COOKIE:
         print("❌ NAVER_COOKIE 환경변수가 없습니다.")
@@ -133,7 +137,7 @@ def main():
     if slots:
         print(f"🎉 빈 슬롯 {len(slots)}개 발견!")
         slot_list = "\n".join([
-            f"  📅 {s['datetime']} (잔여 {s['remaining']}건)"
+            f"  📅 {s['datetime'][:16].replace('T', ' ')} (잔여 {s['remaining']}건)"
             for s in slots[:10]
         ])
         message = (
