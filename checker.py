@@ -136,8 +136,16 @@ def main():
 
     if slots:
         print(f"🎉 빈 슬롯 {len(slots)}개 발견!")
+        def to_kst(dt_str):
+            try:
+                dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+                dt_kst = dt.astimezone(KST)
+                return dt_kst.strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                return dt_str[:16].replace("T", " ")
+
         slot_list = "\n".join([
-            f"  📅 {s['datetime'][:16].replace('T', ' ')} (잔여 {s['remaining']}건)"
+            f"  📅 {to_kst(s['datetime'])} KST (잔여 {s['remaining']}건)"
             for s in slots[:10]
         ])
         message = (
