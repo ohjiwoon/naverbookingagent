@@ -1,5 +1,7 @@
 name: 네이버 예약 슬롯 체커
 
+# updated
+
 on:
   schedule:
     # 매 10분마다 실행 (UTC 기준 → 한국시간 -9시간)
