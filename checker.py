@@ -51,23 +51,9 @@ def check_available_slots() -> list:
         "Cookie": COOKIE,
     }
 
+    # 실제 네이버 API 쿼리 (원본 그대로)
     payload = {
         "operationName": "hourlySchedule",
-        "query": """
-            query hourlySchedule($scheduleParams: ScheduleParams) {
-              schedule(input: $scheduleParams) {
-                bizItemSchedule {
-                  date
-                  slots {
-                    time
-                    available
-                    remainingCount
-                  }
-                }
-                __typename
-              }
-            }
-        """,
         "variables": {
             "scheduleParams": {
                 "businessTypeId": BUSINESS_TYPE_ID,
@@ -76,9 +62,10 @@ def check_available_slots() -> list:
                 "startDateTime": START_DATE,
                 "endDateTime": END_DATE,
                 "fixedTime": True,
-                "includesHolidaySchedules": True,
+                "includesHolidaySchedules": True
             }
-        }
+        },
+        "query": "query hourlySchedule($scheduleParams: ScheduleParams) {\n  schedule(input: $scheduleParams) {\n    bizItemSchedule {\n      hourly {\n        id\n        name\n        slotId\n        scheduleId\n        detailScheduleId\n        unitStartDateTime\n        unitStartTime\n        unitBookingCount\n        unitStock\n        bookingCount\n        stock\n        isBusinessDay\n        isSaleDay\n        isUnitSaleDay\n        isUnitBusinessDay\n        isHoliday\n        duration\n        desc\n        minBookingCount\n        maxBookingCount\n        saleStartDateTime\n        saleEndDateTime\n        seatGroups {\n          color\n          maxPrice\n          name\n          remainStock\n          __typename\n        }\n        prices {\n          groupName\n          isDefault\n          price\n          priceId\n          scheduleId\n          priceTypeCode\n          name\n          normalPrice\n          desc\n          order\n          groupOrder\n          slotId\n          agencyKey\n          bookingCount\n          isImp\n          saleStartDateTime\n          saleEndDateTime\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}"
     }
 
     try:
@@ -94,14 +81,20 @@ def check_available_slots() -> list:
     try:
         schedules = data["data"]["schedule"]["bizItemSchedule"]
         for day in schedules:
-            date = day.get("date", "")
-            slots = day.get("slots", [])
-            for slot in slots:
-                if slot.get("available") and slot.get("remainingCount", 0) > 0:
+            hourly_slots = day.get("hourly", [])
+            for slot in hourly_slots:
+                stock = slot.get("stock", 0)
+                booking_count = slot.get("bookingCount", 0)
+                is_sale_day = slot.get("isSaleDay", False)
+                is_business_day = slot.get("isBusinessDay", False)
+                unit_start = slot.get("unitStartDateTime", "")
+
+                remaining = stock - booking_count
+                if is_business_day and is_sale_day and remaining > 0:
                     available_slots.append({
-                        "date": date,
-                        "time": slot.get("time", ""),
-                        "remaining": slot.get("remainingCount", 0)
+                        "datetime": unit_start,
+                        "remaining": remaining,
+                        "name": slot.get("name", "")
                     })
     except (KeyError, TypeError) as e:
         print(f"❌ 응답 파싱 실패: {e}")
