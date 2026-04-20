@@ -147,6 +147,9 @@ def check_available_slots() -> list:
 def main():
     print(f"🔍 체크 시작: {now_kst.strftime('%Y-%m-%d %H:%M:%S')} (KST)")
 
+    # GitHub Actions에서 DAILY_REPORT=true 환경변수로 구분
+    is_daily_report = os.environ.get("DAILY_REPORT", "false").lower() == "true"
+
     if not COOKIE:
         print("❌ NAVER_COOKIE 환경변수가 없습니다.")
         return
@@ -156,16 +159,16 @@ def main():
 
     slots = check_available_slots()
 
+    def to_kst(dt_str):
+        try:
+            dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+            dt_kst = dt.astimezone(KST)
+            return dt_kst.strftime("%Y-%m-%d %H:%M")
+        except Exception:
+            return dt_str[:16].replace("T", " ")
+
     if slots:
         print(f"🎉 빈 슬롯 {len(slots)}개 발견!")
-        def to_kst(dt_str):
-            try:
-                dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-                dt_kst = dt.astimezone(KST)
-                return dt_kst.strftime("%Y-%m-%d %H:%M")
-            except Exception:
-                return dt_str[:16].replace("T", " ")
-
         slot_list = "\n".join([
             f"  📅 {to_kst(s['datetime'])} KST (잔여 {s['remaining']}건)"
             for s in slots[:10]
@@ -177,8 +180,18 @@ def main():
             f"👉 <a href='{BOOKING_URL}'>지금 바로 예약하기</a>"
         )
         send_telegram(message)
+
     else:
         print("😴 빈 슬롯 없음. 다음 체크를 기다립니다.")
+
+        # 매일 오전 9시 리포트일 때만 정상 작동 확인 메시지 발송
+        if is_daily_report:
+            send_telegram(
+                f"✅ <b>모니터링 정상 작동 중</b>\n\n"
+                f"📅 {now_kst.strftime('%Y-%m-%d %H:%M')} KST 기준\n"
+                f"현재 빈 슬롯 없음. 취소 발생 시 즉시 알림 드릴게요!"
+            )
+            print("📢 일일 리포트 발송 완료")
 
 
 if __name__ == "__main__":
