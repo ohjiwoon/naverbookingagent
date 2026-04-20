@@ -2,7 +2,7 @@ name: 네이버 예약 슬롯 체커
 
 on:
   schedule:
-- cron: '21 14 * * *'
+    - cron: '21 14 * * *'
     - cron: '0 0 * * *'
   workflow_dispatch:
 
