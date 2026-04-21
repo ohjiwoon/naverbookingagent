@@ -184,14 +184,14 @@ def main():
     else:
         print("😴 빈 슬롯 없음. 다음 체크를 기다립니다.")
 
-        # 매일 오전 9시 리포트일 때만 정상 작동 확인 메시지 발송
-        if is_daily_report:
+        # 매 정각 (0~9분 사이) 에 하트비트 메시지 발송
+        if now_kst.minute < 10:
             send_telegram(
                 f"✅ <b>모니터링 정상 작동 중</b>\n\n"
-                f"📅 {now_kst.strftime('%Y-%m-%d %H:%M')} KST 기준\n"
+                f"📅 {now_kst.strftime('%Y-%m-%d %H:%M')} KST\n"
                 f"현재 빈 슬롯 없음. 취소 발생 시 즉시 알림 드릴게요!"
             )
-            print("📢 일일 리포트 발송 완료")
+            print("💓 하트비트 발송 완료")
 
 
 if __name__ == "__main__":
