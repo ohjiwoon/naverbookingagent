@@ -17,7 +17,8 @@ BIZ_ITEM_ID = "6663752"
 # 한국 시간 기준으로 오늘 날짜 계산 (UTC+9)
 KST = timezone(timedelta(hours=9))
 now_kst = datetime.now(KST)
-START_DATE = now_kst.strftime("%Y-%m-%dT00:00:00")
+# 현재 시각부터 체크 (지난 시간 제외)
+START_DATE = now_kst.strftime("%Y-%m-%dT%H:%M:%S")
 END_DATE = "2027-02-28T23:59:59"
 
 BOOKING_URL = "https://map.naver.com/p/entry/place/1774854927?placePath=/booking"
@@ -127,6 +128,14 @@ def check_available_slots() -> list:
                 is_unit_sale_day = slot.get("isUnitSaleDay", False)
                 is_unit_business_day = slot.get("isUnitBusinessDay", False)
                 unit_start = slot.get("unitStartDateTime", "") or slot.get("unitStartTime", "")
+
+                # 슬롯이 이미 지난 시간이면 제외
+                try:
+                    slot_dt = datetime.fromisoformat(unit_start.replace("Z", "+00:00"))
+                    if slot_dt <= now_kst:
+                        continue
+                except Exception:
+                    pass
 
                 # 실제 예약 가능 조건: 단위 영업일 + 단위 판매일 + 잔여석 있음
                 remaining = unit_stock - unit_booking_count
